@@ -115,4 +115,4 @@ else:
 
 # Footer
 st.markdown("---")
-st.markdown("Made with ❤️ by Shruti Singh") 
+st.markdown("Made with ❤️ by Shruti Singh")
