@@ -34,7 +34,7 @@ with st.expander("➕ Add New Student"):
     with st.form("student_form"):
         name = st.text_input("Student Name")
         contact = st.text_input("Contact Number")
-        class = st.text_input("Class")
+        class = st.number_input("Class")
         total_fee = st.number_input("Total Fee", min_value=0)
         paid_fee = st.number_input("Paid Fee", min_value=0, max_value=int(total_fee))
         submit = st.form_submit_button("Save Student")
