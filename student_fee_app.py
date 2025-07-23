@@ -1,97 +1,82 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import uuid
 
-# Initialize session state
-if "data" not in st.session_state:
-    st.session_state.data = []
+st.set_page_config(page_title="Student Fee Manager", layout="wide")
 
-# Sidebar with theme toggle and chart
-st.sidebar.title("Options")
-theme = st.sidebar.radio("Select Theme", ("Light", "Dark"))
-st.markdown(f"""<style>
-    .reportview-container {{
-        background-color: {'#1e1e1e' if theme == 'Dark' else 'white'};
-        color: {'white' if theme == 'Dark' else 'black'};
-    }}
-</style>""", unsafe_allow_html=True)
+# Load or initialize data
+@st.cache_data
+def load_data():
+    return pd.DataFrame(columns=["Name", "Contact Number", "Class", "Installment 1", "Installment 2", "Installment 3", "Total Fee"])
 
-# Title
+df = load_data()
+
+# Sidebar – Charts
+with st.sidebar:
+    st.subheader("Fee Analysis")
+    if not df.empty:
+        df["Paid Fee"] = df[["Installment 1", "Installment 2", "Installment 3"]].fillna(0).sum(axis=1)
+        df["Pending Fee"] = df["Total Fee"] - df["Paid Fee"]
+
+        pie = px.pie(df, values="Paid Fee", names="Name", title="Fee Distribution")
+        st.plotly_chart(pie, use_container_width=True)
+
+        bar = px.bar(df, x="Name", y=["Paid Fee", "Pending Fee"], barmode="group", title="Paid vs Pending")
+        st.plotly_chart(bar, use_container_width=True)
+    else:
+        st.info("No data yet to display charts.")
+
 st.title("🎓 Student Fee Management App")
 
-# Form for student data
-with st.form("fee_form"):
-    name = st.text_input("Student Name")
-    contact = st.text_input("Contact Number")
-    student_class = st.number_input("Class", min_value=1, step=1)
-    installment1 = st.number_input("Installment 1", min_value=0.0, step=100.0)
-    installment2 = st.number_input("Installment 2", min_value=0.0, step=100.0)
-    installment3 = st.number_input("Installment 3", min_value=0.0, step=100.0)
-    pending_fee = st.number_input("Pending Fee", min_value=0.0, step=100.0)
-    submitted = st.form_submit_button("Add/Update Record")
-
-    if submitted:
-        paid_fee = installment1 + installment2 + installment3
-        total_fee = paid_fee + pending_fee
-        student_id = str(uuid.uuid4())
-
-        st.session_state.data.append({
-            "ID": student_id,
-            "Name": name,
-            "Contact": contact,
-            "Class": int(student_class),
-            "Installment 1": installment1,
-            "Installment 2": installment2,
-            "Installment 3": installment3,
-            "Paid Fee": paid_fee,
-            "Pending Fee": pending_fee,
-            "Total Fee": total_fee
-        })
-        st.success("Student record added successfully!")
-
-# Search bar
-search_query = st.text_input("🔍 Search Student by Name")
-
-# Data filtering
-df = pd.DataFrame(st.session_state.data)
-
-if not df.empty:
-    if search_query:
-        df = df[df['Name'].str.contains(search_query, case=False, na=False)]
-        st.subheader("Search Results")
+# Search Functionality
+search_name = st.text_input("🔍 Search by Name")
+if search_name:
+    result = df[df["Name"].str.contains(search_name, case=False)]
+    if not result.empty:
+        st.success("Student found!")
+        st.dataframe(result)
     else:
-        st.subheader("All Student Records")
+        st.warning("No matching student found.")
 
-    # Tabs for Paid and Pending
-    tab1, tab2 = st.tabs(["✅ Fees Completed", "❗ Fees Pending"])
+# Add Student Form
+with st.expander("➕ Add New Student"):
+    with st.form("add_student"):
+        name = st.text_input("Student Name")
+        contact = st.text_input("Contact Number")
+        student_class = st.text_input("Class")
+        inst1 = st.number_input("Installment 1", value=0)
+        inst2 = st.number_input("Installment 2", value=0)
+        inst3 = st.number_input("Installment 3", value=0)
+        total_fee = st.number_input("Total Fee", value=0)
+        submit = st.form_submit_button("Add Student")
 
-    with tab1:
-        paid_df = df[df['Pending Fee'] == 0]
-        st.dataframe(paid_df, use_container_width=True)
+        if submit:
+            new_data = pd.DataFrame([[name, contact, student_class, inst1, inst2, inst3, total_fee]],
+                                    columns=["Name", "Contact Number", "Class", "Installment 1", "Installment 2", "Installment 3", "Total Fee"])
+            df = pd.concat([df, new_data], ignore_index=True)
+            st.success("Student added successfully.")
+            st.experimental_rerun()
 
-    with tab2:
-        pending_df = df[df['Pending Fee'] > 0]
-        st.dataframe(pending_df, use_container_width=True)
+# Tabs for Paid and Pending Fee
+tab1, tab2 = st.tabs(["✅ Paid", "❌ Pending"])
 
-    # Delete button with highlight
-    for idx, row in df.iterrows():
-        col1, col2 = st.columns([8, 2])
-        with col1:
-            st.write(f"**{row['Name']} ({row['Contact']})** - Class {row['Class']} | Total: ₹{row['Total Fee']} | Pending: ₹{row['Pending Fee']}")
-        with col2:
-            if st.button("❌ Delete", key=row['ID']):
-                st.session_state.data = [r for r in st.session_state.data if r['ID'] != row['ID']]
-                st.success(f"Deleted record for {row['Name']}")
-                st.experimental_rerun()
+df["Paid Fee"] = df[["Installment 1", "Installment 2", "Installment 3"]].fillna(0).sum(axis=1)
+df["Pending Fee"] = df["Total Fee"] - df["Paid Fee"]
 
-    # Charts and analysis in sidebar
-    st.sidebar.subheader("📊 Fee Analysis")
-    if len(df) > 0:
-        fig = px.pie(df, names="Name", values="Pending Fee", title="Pending Fees Share")
-        st.sidebar.plotly_chart(fig, use_container_width=True)
+with tab1:
+    st.subheader("Students who Paid Fee")
+    paid_df = df[df["Pending Fee"] <= 0]
+    st.dataframe(paid_df)
 
-        bar_fig = px.bar(df, x="Name", y=["Paid Fee", "Pending Fee"], barmode='group', title="Fees Paid vs Pending")
-        st.sidebar.plotly_chart(bar_fig, use_container_width=True)
-else:
-    st.info("No records found. Please add a student above.")
+with tab2:
+    st.subheader("Students with Pending Fee")
+    pending_df = df[df["Pending Fee"] > 0]
+    st.dataframe(pending_df)
+
+# Delete Student Section
+with st.expander("🗑️ Delete Student"):
+    name_to_delete = st.text_input("Enter Name to Delete")
+    if st.button("Delete"):
+        df = df[df["Name"] != name_to_delete]
+        st.success(f"{name_to_delete} deleted successfully.")
+        st.experimental_rerun()
