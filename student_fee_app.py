@@ -11,7 +11,7 @@ if 'installments' not in st.session_state:
     st.session_state.installments = {}
 
 # Page config
-st.set_page_config(page_title="Student Fee Manager", layout="centered")
+st.set_page_config(page_title="Student Fee Manager", layout="wide")
 
 # Theme switch
 with st.sidebar:
@@ -26,60 +26,73 @@ if st.session_state.dark_mode:
             background-color: #0e1117;
             color: white;
         }
+        .css-1aumxhk, .st-bx, .stDataFrame, .stTable {
+            background-color: #1c1f26;
+            color: white;
+        }
         </style>
     """, unsafe_allow_html=True)
 
 st.title("🎓 Student Fee Management App")
 
-# Form to add new student
-with st.expander("➕ Add New Student"):
-    with st.form("student_form"):
-        name = st.text_input("Student Name")
-        contact = st.text_input("Contact Number")
-        std_class = st.number_input("Class")
-        total_fee = st.number_input("Total Fee", min_value=0)
-        first_paid_fee = st.number_input("Initial Paid Fee", min_value=0, max_value=int(total_fee))
-        submit = st.form_submit_button("Save Student")
+# Add Student with Installment First
+st.markdown("## 💰 Add Student with Installments")
+with st.form("student_form"):
+    name = st.text_input("Student Name")
+    contact = st.text_input("Contact Number")
+    std_class = st.selectbox("Class", list(range(1, 13)))
+    installment1 = st.number_input("Installment 1", min_value=0)
+    installment2 = st.number_input("Installment 2 (optional)", min_value=0)
+    installment3 = st.number_input("Installment 3 (optional)", min_value=0)
+    total_fee = st.number_input("Total Fee", min_value=0)
+    submit = st.form_submit_button("Save Student")
 
-        if submit and name and contact:
-            remaining = total_fee - first_paid_fee
-            student_id = len(st.session_state.students)
-            record = {
-                "ID": student_id,
-                "Name": name,
-                "Contact No": contact,
-                "Class": std_class,
-                "Total Fee": total_fee,
-                "Paid Fee": first_paid_fee,
-                "Pending Fee": remaining,
-                "Last Updated": datetime.now().strftime("%Y-%m-%d %H:%M")
-            }
-            st.session_state.students.append(record)
-            st.session_state.installments[student_id] = [(datetime.now().strftime("%Y-%m-%d %H:%M"), first_paid_fee)]
-            st.success("Student added successfully!")
+    if submit and name and contact:
+        total_paid = installment1 + installment2 + installment3
+        remaining = total_fee - total_paid
+        student_id = len(st.session_state.students)
+        record = {
+            "ID": student_id,
+            "Name": name,
+            "Contact No": contact,
+            "Class": std_class,
+            "Total Fee": total_fee,
+            "Paid Fee": total_paid,
+            "Pending Fee": remaining,
+            "Last Updated": datetime.now().strftime("%Y-%m-%d %H:%M")
+        }
+        st.session_state.students.append(record)
+        st.session_state.installments[student_id] = []
+        if installment1:
+            st.session_state.installments[student_id].append((datetime.now().strftime("%Y-%m-%d %H:%M"), installment1))
+        if installment2:
+            st.session_state.installments[student_id].append((datetime.now().strftime("%Y-%m-%d %H:%M"), installment2))
+        if installment3:
+            st.session_state.installments[student_id].append((datetime.now().strftime("%Y-%m-%d %H:%M"), installment3))
+        st.success("Student added successfully!")
 
 # Function to display student table
 if st.session_state.students:
     df = pd.DataFrame(st.session_state.students)
 
-    tab1, tab2 = st.tabs(["✅ Completed Fees", "⌛ Pending Fees"])
+    tab1, tab2 = st.tabs(["⌛ Pending Fees", "✅ Completed Fees"])
 
     with tab1:
+        pending_df = df[df["Pending Fee"] > 0].sort_values(by="Pending Fee", ascending=False)
+        if not pending_df.empty:
+            st.dataframe(pending_df, use_container_width=True)
+        else:
+            st.info("All fees are completed! Great job!")
+
+    with tab2:
         completed_df = df[df["Pending Fee"] == 0]
         if not completed_df.empty:
             st.dataframe(completed_df, use_container_width=True)
         else:
             st.info("No completed fee records yet.")
 
-    with tab2:
-        pending_df = df[df["Pending Fee"] > 0]
-        if not pending_df.empty:
-            st.dataframe(pending_df, use_container_width=True)
-        else:
-            st.info("All fees are completed! Great job!")
-
     st.markdown("---")
-    st.markdown("## 💸 Add Installment")
+    st.markdown("## ➕ Add New Installment")
 
     student_names = [f"{s['Name']} (ID: {s['ID']})" for s in st.session_state.students]
     selected_name = st.selectbox("Select Student", student_names)
@@ -91,15 +104,15 @@ if st.session_state.students:
         add_installment = st.form_submit_button("Add Installment")
 
         if add_installment:
-            total_paid = sum(amount for _, amount in st.session_state.installments[selected_id]) + new_installment
+            st.session_state.installments[selected_id].append((datetime.now().strftime("%Y-%m-%d %H:%M"), new_installment))
+            total_paid = sum(amount for _, amount in st.session_state.installments[selected_id])
+            selected_student['Paid Fee'] = total_paid
+            selected_student['Pending Fee'] = selected_student['Total Fee'] - total_paid
+            selected_student['Last Updated'] = datetime.now().strftime("%Y-%m-%d %H:%M")
             if total_paid <= selected_student['Total Fee']:
-                selected_student['Paid Fee'] = total_paid
-                selected_student['Pending Fee'] = selected_student['Total Fee'] - total_paid
-                selected_student['Last Updated'] = datetime.now().strftime("%Y-%m-%d %H:%M")
-                st.session_state.installments[selected_id].append((datetime.now().strftime("%Y-%m-%d %H:%M"), new_installment))
                 st.success("Installment added successfully!")
             else:
-                st.error("Installment exceeds total fee!")
+                st.warning("Installments exceed total fee. Consider verifying payment details.")
 
     st.markdown("## 📜 Installment History")
     for student in st.session_state.students:
