@@ -49,6 +49,13 @@ else:
         unsafe_allow_html=True
     )
 
+# Watermark (Enhanced)
+st.markdown("""
+<div style='position: fixed; bottom: 10px; right: 10px; opacity: 0.7; font-size: 14px; font-family: Arial; color: #888;'>
+    🚀 Made with ❤️ by <strong>Shruti Singh</strong>
+</div>
+""", unsafe_allow_html=True)
+
 st.title("📚 Student Fee Management System")
 
 menu = ["Add Student", "View Students", "Search by Name"]
@@ -102,6 +109,11 @@ elif choice == "View Students":
             st.experimental_rerun()
 
         st.dataframe(df[['name', 'contact', 'class', 'installment1', 'installment2', 'installment3', 'total_paid', 'total_fee', 'pending_fee']])
+
+        total_pending = df['pending_fee'].sum()
+        total_completed = df['total_paid'].sum()
+        st.markdown(f"""<h4 style='color: green;'>✅ Total Completed Fees: ₹{total_completed}</h4>""", unsafe_allow_html=True)
+        st.markdown(f"""<h4 style='color: red;'>🔴 Total Pending Fees: ₹{total_pending}</h4>""", unsafe_allow_html=True)
 
         st.markdown("---")
         chart = px.bar(df, x='name', y='pending_fee', title='Pending Fees Chart', color='pending_fee', color_continuous_scale='reds')
