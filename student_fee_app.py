@@ -91,9 +91,10 @@ if st.session_state.students:
         add_installment = st.form_submit_button("Add Installment")
 
         if add_installment:
-            if selected_student['Paid Fee'] + new_installment <= selected_student['Total Fee']:
-                selected_student['Paid Fee'] += new_installment
-                selected_student['Pending Fee'] = selected_student['Total Fee'] - selected_student['Paid Fee']
+            total_paid = sum(amount for _, amount in st.session_state.installments[selected_id]) + new_installment
+            if total_paid <= selected_student['Total Fee']:
+                selected_student['Paid Fee'] = total_paid
+                selected_student['Pending Fee'] = selected_student['Total Fee'] - total_paid
                 selected_student['Last Updated'] = datetime.now().strftime("%Y-%m-%d %H:%M")
                 st.session_state.installments[selected_id].append((datetime.now().strftime("%Y-%m-%d %H:%M"), new_installment))
                 st.success("Installment added successfully!")
