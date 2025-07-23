@@ -2,96 +2,117 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-# Session state initialization
+# Initialize session state
 if 'students' not in st.session_state:
     st.session_state.students = []
-
 if 'dark_mode' not in st.session_state:
     st.session_state.dark_mode = False
+if 'installments' not in st.session_state:
+    st.session_state.installments = {}
 
 # Page config
 st.set_page_config(page_title="Student Fee Manager", layout="centered")
 
-# Theme toggle
+# Theme switch
 with st.sidebar:
     st.markdown("## Settings")
     st.session_state.dark_mode = st.checkbox("Dark Mode", value=st.session_state.dark_mode)
 
+# Apply dark theme manually
 if st.session_state.dark_mode:
     st.markdown("""
         <style>
-        body, .stApp { background-color: #0e1117; color: white; }
+        body, .stApp {
+            background-color: #0e1117;
+            color: white;
+        }
         </style>
     """, unsafe_allow_html=True)
 
 st.title("🎓 Student Fee Management App")
 
-# Add new student form
+# Form to add new student
 with st.expander("➕ Add New Student"):
-    with st.form("add_student"):
+    with st.form("student_form"):
         name = st.text_input("Student Name")
         contact = st.text_input("Contact Number")
-        student_class = st.number_input("Class", min_value=1)
+        std_class = st.number_input("Class")
         total_fee = st.number_input("Total Fee", min_value=0)
-        first_installment = st.number_input("Initial Paid Fee", min_value=0, max_value=int(total_fee))
-        submit = st.form_submit_button("Add Student")
+        first_paid_fee = st.number_input("Initial Paid Fee", min_value=0, max_value=int(total_fee))
+        submit = st.form_submit_button("Save Student")
 
         if submit and name and contact:
+            remaining = total_fee - first_paid_fee
+            student_id = len(st.session_state.students)
             record = {
+                "ID": student_id,
                 "Name": name,
-                "Contact": contact,
-                "Class": student_class,
+                "Contact No": contact,
+                "Class": std_class,
                 "Total Fee": total_fee,
-                "Installments": [first_installment] if first_installment > 0 else [],
-                "Paid Fee": first_installment,
-                "Pending Fee": total_fee - first_installment,
+                "Paid Fee": first_paid_fee,
+                "Pending Fee": remaining,
                 "Last Updated": datetime.now().strftime("%Y-%m-%d %H:%M")
             }
             st.session_state.students.append(record)
-            st.success(f"{name} added successfully!")
+            st.session_state.installments[student_id] = [(datetime.now().strftime("%Y-%m-%d %H:%M"), first_paid_fee)]
+            st.success("Student added successfully!")
 
-# Display and update section
+# Function to display student table
 if st.session_state.students:
     df = pd.DataFrame(st.session_state.students)
 
-    st.subheader("💳 Update Installments")
-    names = [student["Name"] for student in st.session_state.students]
-    selected_name = st.selectbox("Select Student", names)
-
-    selected = next((s for s in st.session_state.students if s["Name"] == selected_name), None)
-    if selected:
-        new_payment = st.number_input(f"New installment for {selected_name}", min_value=0)
-        if st.button("Add Installment"):
-            selected["Installments"].append(new_payment)
-            selected["Paid Fee"] = sum(selected["Installments"])
-            selected["Pending Fee"] = selected["Total Fee"] - selected["Paid Fee"]
-            selected["Last Updated"] = datetime.now().strftime("%Y-%m-%d %H:%M")
-            st.success("Installment updated!")
-
-    # Fee summary
-    df = pd.DataFrame(st.session_state.students)
     tab1, tab2 = st.tabs(["✅ Completed Fees", "⌛ Pending Fees"])
 
     with tab1:
-        completed = df[df["Pending Fee"] == 0]
-        if not completed.empty:
-            st.dataframe(completed, use_container_width=True)
+        completed_df = df[df["Pending Fee"] == 0]
+        if not completed_df.empty:
+            st.dataframe(completed_df, use_container_width=True)
         else:
-            st.info("No fully paid students.")
+            st.info("No completed fee records yet.")
 
     with tab2:
-        pending = df[df["Pending Fee"] > 0]
-        if not pending.empty:
-            st.dataframe(pending, use_container_width=True)
+        pending_df = df[df["Pending Fee"] > 0]
+        if not pending_df.empty:
+            st.dataframe(pending_df, use_container_width=True)
         else:
-            st.info("All fees completed!")
+            st.info("All fees are completed! Great job!")
 
-    # Full records
-    with st.expander("📊 All Student Records"):
-        st.dataframe(df, use_container_width=True)
+    st.markdown("---")
+    st.markdown("## 💸 Add Installment")
+
+    student_names = [f"{s['Name']} (ID: {s['ID']})" for s in st.session_state.students]
+    selected_name = st.selectbox("Select Student", student_names)
+    selected_id = int(selected_name.split("ID: ")[-1][:-1])
+    selected_student = next(s for s in st.session_state.students if s['ID'] == selected_id)
+
+    with st.form("installment_form"):
+        new_installment = st.number_input("Installment Amount", min_value=1)
+        add_installment = st.form_submit_button("Add Installment")
+
+        if add_installment:
+            if selected_student['Paid Fee'] + new_installment <= selected_student['Total Fee']:
+                selected_student['Paid Fee'] += new_installment
+                selected_student['Pending Fee'] = selected_student['Total Fee'] - selected_student['Paid Fee']
+                selected_student['Last Updated'] = datetime.now().strftime("%Y-%m-%d %H:%M")
+                st.session_state.installments[selected_id].append((datetime.now().strftime("%Y-%m-%d %H:%M"), new_installment))
+                st.success("Installment added successfully!")
+            else:
+                st.error("Installment exceeds total fee!")
+
+    st.markdown("## 📜 Installment History")
+    for student in st.session_state.students:
+        st.subheader(f"{student['Name']} (Class {student['Class']})")
+        st.markdown(f"**Total Fee:** ₹{student['Total Fee']} | **Paid:** ₹{student['Paid Fee']} | **Pending:** ₹{student['Pending Fee']}")
+        history = st.session_state.installments.get(student['ID'], [])
+        if history:
+            hist_df = pd.DataFrame(history, columns=["Date", "Amount"])
+            st.table(hist_df)
+        else:
+            st.info("No installments yet.")
 else:
-    st.info("No students yet. Add some!")
+    st.info("No student records yet. Add some!")
 
 # Footer
 st.markdown("---")
-st.markdown("Made with ❤ by Shruti Singh") 
+st.markdown("Made with ❤️ by Shruti Singh")
