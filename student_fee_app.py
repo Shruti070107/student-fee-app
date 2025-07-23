@@ -100,6 +100,21 @@ elif choice == "View Students":
         df['installment2'] = df['installments'].apply(lambda x: x[1])
         df['installment3'] = df['installments'].apply(lambda x: x[2])
 
+        completed_df = df[df['pending_fee'] == 0]
+        pending_df = df[df['pending_fee'] > 0]
+
+        st.markdown("### ✅ Students with Completed Fees")
+        if not completed_df.empty:
+            st.dataframe(completed_df[['name', 'contact', 'class', 'total_paid', 'total_fee', 'pending_fee']])
+        else:
+            st.info("No students have completed the fees.")
+
+        st.markdown("### 🔴 Students with Pending Fees")
+        if not pending_df.empty:
+            st.dataframe(pending_df[['name', 'contact', 'class', 'total_paid', 'total_fee', 'pending_fee']])
+        else:
+            st.info("No students have pending fees.")
+
         selected_student = st.selectbox("Select student to delete", [s['name'] for s in students])
         del_btn = st.button("❌ Delete Selected", key="del")
         if del_btn:
@@ -108,12 +123,12 @@ elif choice == "View Students":
             st.success("Deleted successfully")
             st.experimental_rerun()
 
-        st.dataframe(df[['name', 'contact', 'class', 'installment1', 'installment2', 'installment3', 'total_paid', 'total_fee', 'pending_fee']])
-
         total_pending = df['pending_fee'].sum()
         total_completed = df['total_paid'].sum()
+        total_expected = df['total_fee'].sum()
         st.markdown(f"""<h4 style='color: green;'>✅ Total Completed Fees: ₹{total_completed}</h4>""", unsafe_allow_html=True)
         st.markdown(f"""<h4 style='color: red;'>🔴 Total Pending Fees: ₹{total_pending}</h4>""", unsafe_allow_html=True)
+        st.markdown(f"""<h4 style='color: blue;'>💰 Total Fees (Expected): ₹{total_expected}</h4>""", unsafe_allow_html=True)
 
         st.markdown("---")
         chart = px.bar(df, x='name', y='pending_fee', title='Pending Fees Chart', color='pending_fee', color_continuous_scale='reds')
