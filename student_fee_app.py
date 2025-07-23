@@ -75,7 +75,7 @@ with st.form("student_form"):
 if st.session_state.students:
     df = pd.DataFrame(st.session_state.students)
 
-    tab1, tab2 = st.tabs(["⌛ Pending Fees", "✅ Completed Fees"])
+    tab1, tab2, tab3 = st.tabs(["⌛ Pending Fees", "✅ Completed Fees", "❌ Delete Student"])
 
     with tab1:
         pending_df = df[df["Pending Fee"] > 0].sort_values(by="Pending Fee", ascending=False)
@@ -91,28 +91,40 @@ if st.session_state.students:
         else:
             st.info("No completed fee records yet.")
 
+    with tab3:
+        st.markdown("## ❌ Delete Student")
+        del_names = [f"{s['Name']} (ID: {s['ID']})" for s in st.session_state.students]
+        if del_names:
+            del_selection = st.selectbox("Select Student to Delete", del_names)
+            del_id = int(del_selection.split("ID: ")[-1][:-1])
+            if st.button("Delete Student"):
+                st.session_state.students = [s for s in st.session_state.students if s['ID'] != del_id]
+                st.session_state.installments.pop(del_id, None)
+                st.success("Student deleted successfully!")
+
     st.markdown("---")
     st.markdown("## ➕ Add New Installment")
 
     student_names = [f"{s['Name']} (ID: {s['ID']})" for s in st.session_state.students]
-    selected_name = st.selectbox("Select Student", student_names)
-    selected_id = int(selected_name.split("ID: ")[-1][:-1])
-    selected_student = next(s for s in st.session_state.students if s['ID'] == selected_id)
+    if student_names:
+        selected_name = st.selectbox("Select Student", student_names)
+        selected_id = int(selected_name.split("ID: ")[-1][:-1])
+        selected_student = next(s for s in st.session_state.students if s['ID'] == selected_id)
 
-    with st.form("installment_form"):
-        new_installment = st.number_input("Installment Amount", min_value=1)
-        add_installment = st.form_submit_button("Add Installment")
+        with st.form("installment_form"):
+            new_installment = st.number_input("Installment Amount", min_value=1)
+            add_installment = st.form_submit_button("Add Installment")
 
-        if add_installment:
-            st.session_state.installments[selected_id].append((datetime.now().strftime("%Y-%m-%d %H:%M"), new_installment))
-            total_paid = sum(amount for _, amount in st.session_state.installments[selected_id])
-            selected_student['Paid Fee'] = total_paid
-            selected_student['Pending Fee'] = selected_student['Total Fee'] - total_paid
-            selected_student['Last Updated'] = datetime.now().strftime("%Y-%m-%d %H:%M")
-            if total_paid <= selected_student['Total Fee']:
-                st.success("Installment added successfully!")
-            else:
-                st.warning("Installments exceed total fee. Consider verifying payment details.")
+            if add_installment:
+                st.session_state.installments[selected_id].append((datetime.now().strftime("%Y-%m-%d %H:%M"), new_installment))
+                total_paid = sum(amount for _, amount in st.session_state.installments[selected_id])
+                selected_student['Paid Fee'] = total_paid
+                selected_student['Pending Fee'] = selected_student['Total Fee'] - total_paid
+                selected_student['Last Updated'] = datetime.now().strftime("%Y-%m-%d %H:%M")
+                if total_paid <= selected_student['Total Fee']:
+                    st.success("Installment added successfully!")
+                else:
+                    st.warning("Installments exceed total fee. Consider verifying payment details.")
 
     st.markdown("## 📜 Installment History")
     for student in st.session_state.students:
