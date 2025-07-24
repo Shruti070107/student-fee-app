@@ -18,6 +18,31 @@ if theme == "Dark":
             background-color: #0e1117;
             color: white;
         }
+        .highlight-pending {
+            background-color: #ffcccc;
+            padding: 0.3em;
+            border-radius: 5px;
+        }
+        .highlight-completed {
+            background-color: #ccffcc;
+            padding: 0.3em;
+            border-radius: 5px;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+else:
+    st.markdown("""
+        <style>
+        .highlight-pending {
+            background-color: #ffe6e6;
+            padding: 0.3em;
+            border-radius: 5px;
+        }
+        .highlight-completed {
+            background-color: #e6ffe6;
+            padding: 0.3em;
+            border-radius: 5px;
+        }
         </style>
     """, unsafe_allow_html=True)
 
@@ -65,18 +90,21 @@ if st.session_state.students:
     if search_name:
         df = df[df["Name"].str.contains(search_name, case=False, na=False)]
 
+    st.markdown("### Student Fee Summary")
+    st.dataframe(df[["Name", "Contact", "Class", "Total Fee", "Paid Fee", "Pending Fee"]], use_container_width=True)
+
     for i, student in df.iterrows():
-        col1, col2, col3 = st.columns([6, 3, 1])
+        col1, col2, col3, col4 = st.columns([4, 2, 2, 1])
         with col1:
             st.markdown(f"**{student['Name']} ({student['Contact']}) - Class {student['Class']}**")
         with col2:
-            st.markdown(f"Paid: ₹{student['Paid Fee']} / Pending: ₹{student['Pending Fee']} / Total: ₹{student['Total Fee']}")
+            st.markdown(f"<div class='highlight-completed'>Paid: ₹{student['Paid Fee']}</div>", unsafe_allow_html=True)
         with col3:
+            st.markdown(f"<div class='highlight-pending'>Pending: ₹{student['Pending Fee']}</div>", unsafe_allow_html=True)
+        with col4:
             if st.button("🗑️", key=f"del_{i}"):
                 st.session_state.students.pop(i)
                 st.experimental_rerun()
-
-    st.dataframe(df, use_container_width=True)
 
     # Summary
     total_collected = sum(s["Paid Fee"] for s in st.session_state.students)
