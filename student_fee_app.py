@@ -19,12 +19,14 @@ if theme == "Dark":
             color: white;
         }
         .highlight-pending {
-            background-color: #ffcccc;
+            background-color: #660000;
+            color: white;
             padding: 0.3em;
             border-radius: 5px;
         }
         .highlight-completed {
-            background-color: #ccffcc;
+            background-color: #003300;
+            color: white;
             padding: 0.3em;
             border-radius: 5px;
         }
@@ -90,9 +92,6 @@ if st.session_state.students:
     if search_name:
         df = df[df["Name"].str.contains(search_name, case=False, na=False)]
 
-    st.markdown("### Student Fee Summary")
-    st.dataframe(df[["Name", "Contact", "Class", "Total Fee", "Paid Fee", "Pending Fee"]], use_container_width=True)
-
     for i, student in df.iterrows():
         col1, col2, col3, col4 = st.columns([4, 2, 2, 1])
         with col1:
@@ -106,17 +105,30 @@ if st.session_state.students:
                 st.session_state.students.pop(i)
                 st.experimental_rerun()
 
-    # Summary
+    st.dataframe(df, use_container_width=True)
+
+    # Sidebar Metrics
     total_collected = sum(s["Paid Fee"] for s in st.session_state.students)
     total_pending = sum(s["Pending Fee"] for s in st.session_state.students)
     st.sidebar.metric("Total Fees Collected", f"₹ {total_collected}")
     st.sidebar.metric("Total Fees Pending", f"₹ {total_pending}")
 
-    # Chart
+    # Pie Chart
     chart_df = pd.DataFrame({
         "Status": ["Collected", "Pending"],
         "Amount": [total_collected, total_pending]
     })
     st.sidebar.plotly_chart(px.pie(chart_df, values='Amount', names='Status', title='Fee Distribution'), use_container_width=True)
+
+    # Sidebar Lists
+    with st.sidebar.expander("📌 Pending Students"):
+        for student in st.session_state.students:
+            if student["Pending Fee"] > 0:
+                st.markdown(f"<span style='color:#ffcccc;'>{student['Name']} (₹{student['Pending Fee']})</span>", unsafe_allow_html=True)
+
+    with st.sidebar.expander("✅ Completed Students"):
+        for student in st.session_state.students:
+            if student["Pending Fee"] <= 0:
+                st.markdown(f"<span style='color:#ccffcc;'>{student['Name']}</span>", unsafe_allow_html=True)
 else:
     st.info("No student records yet.")
