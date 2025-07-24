@@ -1,96 +1,122 @@
-
 import streamlit as st
 import pandas as pd
-import os
+import plotly.express as px
 
-# CSV file path
-DATA_FILE = "students.csv"
+# Page Config
+st.set_page_config(page_title="Student Fee Management", layout="wide")
 
-# Initialize CSV file if it doesn't exist
-if not os.path.exists(DATA_FILE):
-    df_init = pd.DataFrame(columns=["Name", "Contact", "Total Fee", "Paid Fee", "Pending Fee"])
-    df_init.to_csv(DATA_FILE, index=False)
+# Initialize session state for data
+if "students" not in st.session_state:
+    st.session_state.students = []
 
-# Load data
-df = pd.read_csv(DATA_FILE)
+# Theme Toggle
+theme = st.sidebar.radio("Select Theme", ["Light", "Dark"])
+if theme == "Dark":
+    st.markdown("""
+        <style>
+        body, .stApp {
+            background-color: #0e1117;
+            color: white;
+        }
+        .highlight-pending {
+            background-color: #ffcccc;
+            padding: 0.3em;
+            border-radius: 5px;
+        }
+        .highlight-completed {
+            background-color: #ccffcc;
+            padding: 0.3em;
+            border-radius: 5px;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+else:
+    st.markdown("""
+        <style>
+        .highlight-pending {
+            background-color: #ffe6e6;
+            padding: 0.3em;
+            border-radius: 5px;
+        }
+        .highlight-completed {
+            background-color: #e6ffe6;
+            padding: 0.3em;
+            border-radius: 5px;
+        }
+        </style>
+    """, unsafe_allow_html=True)
 
-# Title and watermark
-st.markdown("""
-    <h1 style='text-align: center; color: white;'>🎓 Student Fee Manager</h1>
-    <p style='text-align: center; color: gray;'>Made by Shruti Singh</p>
-    <hr style='border: 1px solid gray;'>
-""", unsafe_allow_html=True)
+# Title
+st.title("📘 Student Fee Management App")
+st.markdown("<div style='text-align:right;color:grey;'>Made by Shruti Singh</div>", unsafe_allow_html=True)
 
-# Add new student
-st.subheader("➕ Add Student")
-with st.form("add_form"):
-    name = st.text_input("Student Name")
-    contact = st.text_input("Contact Number")
-    total_fee = st.number_input("Total Fee", min_value=0)
-    paid_fee = st.number_input("Paid Fee", min_value=0)
+# Add Student Form
+with st.form("Add Student"):
+    col1, col2 = st.columns(2)
+    with col1:
+        name = st.text_input("Student Name")
+        contact = st.text_input("Contact No")
+        class_name = st.selectbox("Class", ["Nursery", "KG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"])
+        total_fee = st.number_input("Total Fee", min_value=0, value=0)
+    with col2:
+        installment_1 = st.number_input("Installment 1", min_value=0, value=0)
+        installment_2 = st.number_input("Installment 2", min_value=0, value=0)
+        installment_3 = st.number_input("Installment 3 (Optional)", min_value=0, value=0)
+
     submitted = st.form_submit_button("Add Student")
-
-    if submitted:
-        pending_fee = total_fee - paid_fee
-        new_data = pd.DataFrame([[name, contact, total_fee, paid_fee, pending_fee]],
-                                columns=["Name", "Contact", "Total Fee", "Paid Fee", "Pending Fee"])
-        df = pd.concat([df, new_data], ignore_index=True)
-        df.to_csv(DATA_FILE, index=False)
+    if submitted and name and contact:
+        paid = installment_1 + installment_2 + installment_3
+        pending = total_fee - paid
+        st.session_state.students.append({
+            "Name": name,
+            "Contact": contact,
+            "Class": class_name,
+            "Installment 1": installment_1,
+            "Installment 2": installment_2,
+            "Installment 3": installment_3,
+            "Total Fee": total_fee,
+            "Paid Fee": paid,
+            "Pending Fee": pending
+        })
         st.success("Student added successfully!")
-        st.experimental_rerun()
 
-# Search by name
-st.subheader("🔍 Search Student")
-search_name = st.text_input("Enter name to search")
-if search_name:
-    filtered_df = df[df['Name'].str.contains(search_name, case=False)]
-    st.dataframe(filtered_df, use_container_width=True)
+# Search
+search_name = st.text_input("🔍 Search Student by Name")
 
-# Delete student
-st.subheader("❌ Delete Student")
-delete_contact = st.text_input("Enter contact number to delete")
-if st.button("Delete"):
-    if delete_contact in df["Contact"].values:
-        df = df[df["Contact"] != delete_contact]
-        df.to_csv(DATA_FILE, index=False)
-        st.success("Student deleted successfully!")
-        st.experimental_rerun()
-    else:
-        st.error("Contact not found!")
+# Display Students
+if st.session_state.students:
+    df = pd.DataFrame(st.session_state.students)
 
-# Separate pending and completed data
-pending_df = df[df["Pending Fee"] > 0]
-completed_df = df[df["Pending Fee"] == 0]
+    if search_name:
+        df = df[df["Name"].str.contains(search_name, case=False, na=False)]
 
-# Style functions
-def style_pending(df):
-    return df.style.set_properties(**{
-        'background-color': '#660000',  # dark red
-        'color': 'white',
-        'border-color': 'white'
+    st.markdown("### Student Fee Summary")
+    st.dataframe(df[["Name", "Contact", "Class", "Total Fee", "Paid Fee", "Pending Fee"]], use_container_width=True)
+
+    for i, student in df.iterrows():
+        col1, col2, col3, col4 = st.columns([4, 2, 2, 1])
+        with col1:
+            st.markdown(f"**{student['Name']} ({student['Contact']}) - Class {student['Class']}**")
+        with col2:
+            st.markdown(f"<div class='highlight-completed'>Paid: ₹{student['Paid Fee']}</div>", unsafe_allow_html=True)
+        with col3:
+            st.markdown(f"<div class='highlight-pending'>Pending: ₹{student['Pending Fee']}</div>", unsafe_allow_html=True)
+        with col4:
+            if st.button("🗑️", key=f"del_{i}"):
+                st.session_state.students.pop(i)
+                st.experimental_rerun()
+
+    # Summary
+    total_collected = sum(s["Paid Fee"] for s in st.session_state.students)
+    total_pending = sum(s["Pending Fee"] for s in st.session_state.students)
+    st.sidebar.metric("Total Fees Collected", f"₹ {total_collected}")
+    st.sidebar.metric("Total Fees Pending", f"₹ {total_pending}")
+
+    # Chart
+    chart_df = pd.DataFrame({
+        "Status": ["Collected", "Pending"],
+        "Amount": [total_collected, total_pending]
     })
-
-def style_completed(df):
-    return df.style.set_properties(**{
-        'background-color': '#003300',  # dark green
-        'color': 'white',
-        'border-color': 'white'
-    })
-
-# Two-column layout
-st.subheader("📊 Fee Summary")
-col1, col2 = st.columns(2)
-
-with col1:
-    st.markdown("### 🔴 Students with Pending Fees")
-    if not pending_df.empty:
-        st.dataframe(style_pending(pending_df), use_container_width=True)
-    else:
-        st.success("No pending fees!")
-
-with col2:
-    st.markdown("### 🟢 Students with Completed Fees")
-    if not completed_df.empty:
-        st.dataframe(style_completed(completed_df), use_container_width=True)
-    else:
-        st.warning("No fees completed yet.")
+    st.sidebar.plotly_chart(px.pie(chart_df, values='Amount', names='Status', title='Fee Distribution'), use_container_width=True)
+else:
+    st.info("No student records yet.")
