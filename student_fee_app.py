@@ -11,6 +11,7 @@ if "students" not in st.session_state:
 
 # Theme Toggle
 theme = st.sidebar.radio("Select Theme", ["Light", "Dark"])
+
 if theme == "Dark":
     st.markdown("""
         <style>
@@ -20,15 +21,17 @@ if theme == "Dark":
         }
         .highlight-pending {
             background-color: #660000;
-            color: white;
-            padding: 0.3em;
-            border-radius: 5px;
+            color: #ffffff;
+            font-weight: bold;
+            padding: 0.5em;
+            border-radius: 8px;
         }
         .highlight-completed {
-            background-color: #003300;
-            color: white;
-            padding: 0.3em;
-            border-radius: 5px;
+            background-color: #004d00;
+            color: #ffffff;
+            font-weight: bold;
+            padding: 0.5em;
+            border-radius: 8px;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -37,17 +40,20 @@ else:
         <style>
         .highlight-pending {
             background-color: #ffe6e6;
-            padding: 0.3em;
-            border-radius: 5px;
+            color: #990000;
+            font-weight: bold;
+            padding: 0.5em;
+            border-radius: 8px;
         }
         .highlight-completed {
             background-color: #e6ffe6;
-            padding: 0.3em;
-            border-radius: 5px;
+            color: #006600;
+            font-weight: bold;
+            padding: 0.5em;
+            border-radius: 8px;
         }
         </style>
     """, unsafe_allow_html=True)
-
 # Title
 st.title("📘 Student Fee Management App")
 st.markdown("<div style='text-align:right;color:grey;'>Made by Shruti Singh</div>", unsafe_allow_html=True)
