@@ -1,17 +1,12 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 
-# Page Config
-st.set_page_config(page_title="Student Fee Management", layout="wide")
+st.set_page_config(page_title="Student Fee Manager", layout="wide")
 
-# Initialize session state for data
-if "students" not in st.session_state:
-    st.session_state.students = []
+# Theme toggle
+theme = st.sidebar.radio("Select Theme", ("Light", "Dark"))
 
-# Theme Toggle
-theme = st.sidebar.radio("Select Theme", ["Light", "Dark"])
-
+# Apply styles
 if theme == "Dark":
     st.markdown("""
         <style>
@@ -20,18 +15,20 @@ if theme == "Dark":
             color: white;
         }
         .highlight-pending {
-            background-color: #660000;
+            background-color: #8B0000;
             color: #ffffff;
             font-weight: bold;
-            padding: 0.5em;
-            border-radius: 8px;
+            font-size: 16px;
+            padding: 0.3em;
+            border-radius: 5px;
         }
         .highlight-completed {
-            background-color: #004d00;
+            background-color: #006400;
             color: #ffffff;
             font-weight: bold;
-            padding: 0.5em;
-            border-radius: 8px;
+            font-size: 16px;
+            padding: 0.3em;
+            border-radius: 5px;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -39,102 +36,79 @@ else:
     st.markdown("""
         <style>
         .highlight-pending {
-            background-color: #ffe6e6;
-            color: #990000;
+            background-color: #ff9999;
+            color: #000000;
             font-weight: bold;
-            padding: 0.5em;
-            border-radius: 8px;
+            font-size: 16px;
+            padding: 0.3em;
+            border-radius: 5px;
         }
         .highlight-completed {
-            background-color: #e6ffe6;
-            color: #006600;
+            background-color: #66cc66;
+            color: #000000;
             font-weight: bold;
-            padding: 0.5em;
-            border-radius: 8px;
+            font-size: 16px;
+            padding: 0.3em;
+            border-radius: 5px;
         }
         </style>
     """, unsafe_allow_html=True)
-# Title
-st.title("📘 Student Fee Management App")
-st.markdown("<div style='text-align:right;color:grey;'>Made by Shruti Singh</div>", unsafe_allow_html=True)
 
-# Add Student Form
-with st.form("Add Student"):
-    col1, col2 = st.columns(2)
-    with col1:
-        name = st.text_input("Student Name")
-        contact = st.text_input("Contact No")
-        class_name = st.selectbox("Class", ["Nursery", "KG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"])
-        total_fee = st.number_input("Total Fee", min_value=0, value=0)
-    with col2:
-        installment_1 = st.number_input("Installment 1", min_value=0, value=0)
-        installment_2 = st.number_input("Installment 2", min_value=0, value=0)
-        installment_3 = st.number_input("Installment 3 (Optional)", min_value=0, value=0)
+# Data initialization
+if 'students' not in st.session_state:
+    st.session_state.students = []
 
-    submitted = st.form_submit_button("Add Student")
-    if submitted and name and contact:
-        paid = installment_1 + installment_2 + installment_3
-        pending = total_fee - paid
-        st.session_state.students.append({
-            "Name": name,
-            "Contact": contact,
-            "Class": class_name,
-            "Installment 1": installment_1,
-            "Installment 2": installment_2,
-            "Installment 3": installment_3,
-            "Total Fee": total_fee,
-            "Paid Fee": paid,
-            "Pending Fee": pending
-        })
-        st.success("Student added successfully!")
+# Add new student
+st.title("💰 Student Fee Management App")
+st.subheader("Add Student Details")
 
-# Search
-search_name = st.text_input("🔍 Search Student by Name")
+with st.form("student_form"):
+    name = st.text_input("Student Name")
+    contact = st.text_input("Contact Number")
+    total_fee = st.number_input("Total Fee (₹)", min_value=0)
+    installment1 = st.number_input("Installment 1", min_value=0)
+    installment2 = st.number_input("Installment 2", min_value=0)
+    installment3 = st.number_input("Installment 3", min_value=0)
+    submit = st.form_submit_button("Add Student")
 
-# Display Students
-if st.session_state.students:
-    df = pd.DataFrame(st.session_state.students)
+if submit:
+    student = {
+        "Name": name,
+        "Contact": contact,
+        "Total Fee": total_fee,
+        "Installments": [installment1, installment2, installment3]
+    }
+    st.session_state.students.append(student)
+    st.success(f"Student {name} added!")
 
-    if search_name:
-        df = df[df["Name"].str.contains(search_name, case=False, na=False)]
+# Show student list
+st.subheader("🎓 All Students")
+df_data = []
+for student in st.session_state.students:
+    paid = sum(student["Installments"])
+    pending = student["Total Fee"] - paid
+    status = "Completed" if pending <= 0 else "Pending"
+    df_data.append({
+        "Name": student["Name"],
+        "Contact": student["Contact"],
+        "Total Fee": student["Total Fee"],
+        "Paid": paid,
+        "Pending": pending,
+        "Status": status
+    })
 
-    for i, student in df.iterrows():
-        col1, col2, col3, col4 = st.columns([4, 2, 2, 1])
-        with col1:
-            st.markdown(f"**{student['Name']} ({student['Contact']}) - Class {student['Class']}**")
-        with col2:
-            st.markdown(f"<div class='highlight-completed'>Paid: ₹{student['Paid Fee']}</div>", unsafe_allow_html=True)
-        with col3:
-            st.markdown(f"<div class='highlight-pending'>Pending: ₹{student['Pending Fee']}</div>", unsafe_allow_html=True)
-        with col4:
-            if st.button("🗑️", key=f"del_{i}"):
-                st.session_state.students.pop(i)
-                st.experimental_rerun()
-
+if df_data:
+    df = pd.DataFrame(df_data)
     st.dataframe(df, use_container_width=True)
 
-    # Sidebar Metrics
-    total_collected = sum(s["Paid Fee"] for s in st.session_state.students)
-    total_pending = sum(s["Pending Fee"] for s in st.session_state.students)
-    st.sidebar.metric("Total Fees Collected", f"₹ {total_collected}")
-    st.sidebar.metric("Total Fees Pending", f"₹ {total_pending}")
+    # Sidebar: show filtered lists
+    st.sidebar.markdown("### ✅ Completed Students")
+    for student in df[df["Status"] == "Completed"]["Name"]:
+        st.sidebar.markdown(f"<div class='highlight-completed'>{student}</div>", unsafe_allow_html=True)
 
-    # Pie Chart
-    chart_df = pd.DataFrame({
-        "Status": ["Collected", "Pending"],
-        "Amount": [total_collected, total_pending]
-    })
-    st.sidebar.plotly_chart(px.pie(chart_df, values='Amount', names='Status', title='Fee Distribution'), use_container_width=True)
+    st.sidebar.markdown("### ❌ Pending Students")
+    for student in df[df["Status"] == "Pending"]["Name"]:
+        st.sidebar.markdown(f"<div class='highlight-pending'>{student}</div>", unsafe_allow_html=True)
 
-    # Sidebar Lists
-    with st.sidebar.expander("📌 Pending Students"):
-        for student in st.session_state.students:
-            if student["Pending Fee"] > 0:
-                st.markdown(f"<span style='color:#ffcccc;'>{student['Name']} (₹{student['Pending Fee']})</span>", unsafe_allow_html=True)
-
-    with st.sidebar.expander("✅ Completed Students"):
-        for student in st.session_state.students:
-            if student["Pending Fee"] <= 0:
-                st.markdown(f"<span style='color:#ccffcc;'>{student['Name']}</span>", unsafe_allow_html=True)
-else:
-    st.info("No student records yet.")
+# Watermark
+st.markdown("<br><br><center style='opacity: 0.4;'>Made by Shruti Singh</center>", unsafe_allow_html=True)
