@@ -55,6 +55,19 @@ else:
         </style>
     """, unsafe_allow_html=True)
 
+# Optional Pie Chart
+st.subheader("📈 Overall Fee Distribution")
+paid_total = df["Paid"].sum()
+pending_total = df["Pending"].sum()
+
+fig2 = go.Figure(data=[go.Pie(
+    labels=['Paid', 'Pending'],
+    values=[paid_total, pending_total],
+    marker=dict(colors=['green', 'red']),
+    hole=0.4
+)])
+st.plotly_chart(fig2, use_container_width=True)
+
 # Data initialization
 if 'students' not in st.session_state:
     st.session_state.students = []
